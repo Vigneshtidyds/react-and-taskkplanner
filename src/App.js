@@ -1,24 +1,26 @@
-import logo from './logo.svg';
+import Header from './Header';
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap/dist/js/bootstrap.bundle.min"; 
 import './App.css';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Login from "./Login";
+import KanbanBoard from "./components/KanbanBoard";
+import AdminDashboard from "./AdminDashboard";
+import UserDashboard from "./UserDashboard";
+import UserManagement from './UserManagement';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+    <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/user-dashboard" element={<UserDashboard />} />
+        <Route path="/user-management" element={<UserManagement />} />
+        <Route path="/" element={<KanbanBoard />} />
+
+    </Routes>
+</Router>
   );
 }
 
