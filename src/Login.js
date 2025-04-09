@@ -21,9 +21,10 @@ const Login = () => {
         password,
       });
 
-      const { token, role } = response.data;
+      const { token, role, user } = response.data;
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
+      localStorage.setItem("user", JSON.stringify(user));
       navigate(role === "admin" ? "/admin-dashboard" : "/user-dashboard");
     } catch (error) {
       setErrorMessage("Invalid email or password. Please try again.");

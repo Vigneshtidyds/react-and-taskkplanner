@@ -21,6 +21,10 @@ const KanbanBoard = () => {
     const [userSuggestions, setUserSuggestions] = useState([]);
     const [selectedTask, setSelectedTask] = useState(null);
     const boardRef = useRef(null);
+    const userData = JSON.parse(localStorage.getItem("user"));
+    const [currentUser, setCurrentUser] = useState(userData);
+
+
 
 
     useEffect(() => {
@@ -450,12 +454,13 @@ const KanbanBoard = () => {
                             ))}
                         </div>
                         {selectedTask && (
-                            <TaskDetailsPopup 
-                            task={selectedTask} 
-                            buckets={buckets} 
-                            onClose={() => setSelectedTask(null)} 
+                            <TaskDetailsPopup  
+                                task={selectedTask} 
+                                buckets={buckets} 
+                                onClose={() => setSelectedTask(null)} 
+                                currentUser={currentUser}
+                                onTaskUpdate={saveEditedTask}
                             />
-
                     )}
                     </motion.div>
                 ))}

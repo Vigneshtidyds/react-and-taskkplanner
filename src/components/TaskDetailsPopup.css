@@ -6,11 +6,10 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 50;
     background-color: black;
   }
   
-  .popup-container {
+  .popup-container {  
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 0 20px rgba(0,0,0,0.1);
@@ -110,5 +109,23 @@
     font-size: 11px;
     color: #aaa;
     margin-top: 20px;
+  }
+  .rounded-circle {
+    border-radius: 50%;
+  }
+  .d-flex {
+    display: flex;
+  }
+  .align-items-center {
+    align-items: center;
+  }
+  .gap-2 {
+    gap: 8px;
+  }
+  .ms-2 {
+    margin-left: 8px;
+  }
+  .fw-medium {
+    font-weight: 500;
   }
   
