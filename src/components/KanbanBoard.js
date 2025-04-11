@@ -24,6 +24,7 @@ const KanbanBoard = () => {
     const userData = JSON.parse(localStorage.getItem("user"));
     const [currentUser, setCurrentUser] = useState(userData);
     const wrapperRef = useRef();
+    const bucketMenuRef = useRef(null);
 
 
 
@@ -42,7 +43,17 @@ const KanbanBoard = () => {
         };
         fetchData();
     }, []);
-
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (bucketMenuRef.current && !bucketMenuRef.current.contains(event.target)) {
+                setMenuOpen(null); // Close bucket dropdown
+            }
+        };  
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [menuOpen]);
     useEffect(() => {
         const board = boardRef.current;
         if (!board) return;
@@ -285,22 +296,19 @@ const KanbanBoard = () => {
                                     <h5>{bucket.name}</h5>
                                     <div className="menu-icon" onClick={() => toggleMenu(bucket.id)}>⋮</div>
                                     {menuOpen === bucket.id && (
-                                        <div className="dropdown-menu">
+                                        <div className="dropdown-menu" ref={bucketMenuRef}> {/* Step 3 */}
                                             <button onClick={() => handleEditBucket(bucket)}>Edit</button>
                                             <button onClick={() => handleDelete(bucket.id)}>Delete</button>
                                         </div>
-                                    )}
-                                </>
+                                    )}</>
                             )}
                         </div>
 
                         <button className="add-task-btn" onClick={() => handleAddTask(bucket.id)}>+ Add Task</button>
-
                         {newTask.bucketId === bucket.id && (
                             <motion.div ref={wrapperRef} className="task new-task-form" initial={{ scale: 0.9 }} animate={{ scale: 1 }}>
                                 <input type="text" placeholder="Task name" value={newTask.name} onChange={e => setNewTask({ ...newTask, name: e.target.value })} />
                                 <input type="date" value={newTask.dueDate} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
-
                                 <div className="assigned-user-input">
                                     <div className="selected-users">
                                         {newTask.assignedTo.map(id => {
@@ -319,7 +327,6 @@ const KanbanBoard = () => {
                                             ) : null;
                                         })}
                                     </div>
-
                                     <input
                                         type="text"
                                         placeholder="Type name or email"
@@ -329,7 +336,6 @@ const KanbanBoard = () => {
                                             await fetchUserSuggestions(e.target.value); // Your API call to get suggestions
                                         }}
                                     />
-
                                     {(newTask.assigneeInput || newTask.assignedTo.length) && (
                                         <div className="autocomplete-dropdown">
                                             {newTask.assignedTo.length > 0 && (
@@ -354,7 +360,6 @@ const KanbanBoard = () => {
                                                     })}
                                                 </>
                                             )}
-
                                             <div className="suggestions-label">Suggestions</div>
                                             {userSuggestions
                                                 .filter(user => !newTask.assignedTo.includes(user.id.toString()))
@@ -368,8 +373,7 @@ const KanbanBoard = () => {
                                                                 assignedTo: [...prev.assignedTo, user.id.toString()],
                                                                 assigneeInput: ""
                                                             }));
-                                                        }}
-                                                    >
+                                                        }}>
                                                         <img src={user.profileImage} alt={user.name} className="avatar" />
                                                         <div className="user-info">
                                                             <div className="name">{user.name}</div>
@@ -381,9 +385,7 @@ const KanbanBoard = () => {
                                     )}
                                 </div>
                                 <button onClick={saveTask}>Save Task</button>
-                            </motion.div>
-                        )}
-
+                            </motion.div>)}
                         <div className="task-list">
                             {(tasks[bucket.id] || []).map(task => (
                                 <motion.div
@@ -391,61 +393,45 @@ const KanbanBoard = () => {
                                 className="task"
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
-                                onClick={() => editingTaskId !== task.id && setSelectedTask(task)} // Open Task Detail only if not editing
-                                >
+                                onClick={() => editingTaskId !== task.id && setSelectedTask(task)}>
                                 <div className="task-header">
                                     <strong>{task.name}</strong>
-
-                                    {/* Three dots menu */}
                                     <div
-                                    className="menu-icon"
-                                    onClick={(e) => {
-                                        e.stopPropagation(); // Important! Stops click event from reaching parent
-                                        toggleTaskMenu(task.id);
-                                    }}
-                                    >
-                                    ⋮
+                                        className="menu-icon"
+                                        onClick={(e) => {
+                                            e.stopPropagation(); // Important! Stops click event from reaching parent
+                                            toggleTaskMenu(task.id);
+                                        }}>⋮</div>
+                                        {taskMenuOpen === task.id && (
+                                        <div className="dropdown-menu">
+                                            <button onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingTaskId(task.id);
+                                            setTaskEdits({
+                                                name: task.name,
+                                                due_date: task.due_date,
+                                                assignedTo: task.assigned_users?.map(u => u.id.toString()) || [],
+                                                assigneeInput: ""});
+                                            setTaskMenuOpen(null);}}>Edit</button>
+                                            <button onClick={() => deleteTask(task.id, bucket.id)}>Delete</button>
+                                        </div>)}
                                     </div>
-
-                                    {taskMenuOpen === task.id && (
-                                    <div className="dropdown-menu">
-                                        <button onClick={() => {
-                                        setEditingTaskId(task.id);
-                                        setTaskEdits({
-                                            name: task.name,
-                                            due_date: task.due_date,
-                                            assignedTo: task.assigned_users?.map(u => u.id.toString()) || [],
-                                            assigneeInput: ""
-                                        });
-                                        setTaskMenuOpen(null);
-                                        }}>
-                                        Edit
-                                        </button>
-                                        <button onClick={() => deleteTask(task.id, bucket.id)}>Delete</button>
-                                    </div>
-                                    )}
-                                </div>
-
                                 {editingTaskId === task.id ? (
                                     <div className="edit-task-form">
                                     <input type="text" value={taskEdits.name} onChange={e => setTaskEdits({ ...taskEdits, name: e.target.value })} />
                                     <input type="date" value={taskEdits.due_date} onChange={e => setTaskEdits({ ...taskEdits, due_date: e.target.value })} />
-
                                     <div className="assigned-user-input">
                                         <div className="selected-users">
                                         {taskEdits.assignedTo.map(id => {
                                             const user = userSuggestions.find(u => u.id.toString() === id);
-                                            return user ? <span key={id} className="tag">{user.email}</span> : null;
-                                        })}
-                                        </div>
+                                            return user ? <span key={id} className="tag">{user.email}</span> : null;})} </div>
                                         <input
                                         type="text"
                                         placeholder="Type email"
                                         value={taskEdits.assigneeInput}
                                         onChange={async (e) => {
                                             setTaskEdits({ ...taskEdits, assigneeInput: e.target.value });
-                                            await fetchUserSuggestions(e.target.value);
-                                        }}
+                                            await fetchUserSuggestions(e.target.value);}}
                                         onKeyDown={(e) => {
                                             if (e.key === "Enter" && userSuggestions.length) {
                                             const selected = userSuggestions[0];
@@ -454,12 +440,7 @@ const KanbanBoard = () => {
                                                 ...prev,
                                                 assignedTo: [...prev.assignedTo, selected.id.toString()],
                                                 assigneeInput: ""
-                                                }));
-                                            }
-                                            e.preventDefault();
-                                            }
-                                        }}
-                                        />
+                                                }));}e.preventDefault();}}}/>
                                         {taskEdits.assigneeInput && (
                                         <div className="autocomplete-dropdown">
                                             {userSuggestions.map(user => (
@@ -472,30 +453,21 @@ const KanbanBoard = () => {
                                                     ...prev,
                                                     assignedTo: [...prev.assignedTo, user.id.toString()],
                                                     assigneeInput: ""
-                                                    }));
-                                                }
-                                                }}
-                                            >
-                                                {user.email}
-                                            </div>
-                                            ))}
+                                                    }));}}}>{user.email}
+                                            </div>))}
                                         </div>
                                         )}
                                     </div>
-
                                     <button onClick={() => saveEditedTask(task)}>Save</button>
                                     <button onClick={() => setEditingTaskId(null)}>Cancel</button>
-                                    </div>
-                                ) : (
-                                    <>
+                                    </div>) : (<>
                                     <p>Due: {task.due_date ? formatDate(task.due_date) : "No due date"}</p>
                                     <p>
                                         Assigned to:{" "}
                                         {task.assigned_users?.length
                                         ? task.assigned_users.map(u => u.email).join(", ")
                                         : "Unassigned"}
-                                    </p>
-                                    </>
+                                    </p></>
                                 )}
                                 </motion.div>
                             ))}
@@ -511,7 +483,6 @@ const KanbanBoard = () => {
                     )}
                     </motion.div>
                 ))}
-
                 <div className="add-bucket-container">
                     {addingBucket ? (
                         <div className="new-bucket-form">
@@ -529,7 +500,6 @@ const KanbanBoard = () => {
                     )}
                 </div>
             </div>
-
             {deleteConfirm !== null && (
                 <div className="popup-overlay">
                     <div className="delete-popup ">
@@ -537,8 +507,7 @@ const KanbanBoard = () => {
                         <button className="confirm-btn" onClick={confirmDelete}>Delete</button>
                         <button className="cancel-btn" onClick={closeDeletePopup}>Cancel</button>
                     </div>
-                </div>
-            )}
+                </div>)}
         </div>
     );
 };
