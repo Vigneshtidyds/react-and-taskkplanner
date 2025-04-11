@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onSave }) => {
+const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate }) => {
   const [selectedBucket, setSelectedBucket] = useState(task.bucket_id);
   const [progress, setProgress] = useState(task.progress || 'Not Started');
   const [priority, setPriority] = useState(task.priority || 'Medium');
@@ -66,7 +66,8 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onSave }) => {
       attachments,
       comments,
     };
-    onSave(updatedTask);  // Pass data to parent to save in API
+
+    onTaskUpdate(updatedTask);
   };
 
   return (

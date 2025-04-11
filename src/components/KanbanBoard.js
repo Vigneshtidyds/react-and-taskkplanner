@@ -23,6 +23,7 @@ const KanbanBoard = () => {
     const boardRef = useRef(null);
     const userData = JSON.parse(localStorage.getItem("user"));
     const [currentUser, setCurrentUser] = useState(userData);
+    const wrapperRef = useRef();
 
 
 
@@ -186,7 +187,7 @@ const KanbanBoard = () => {
     };
 
     const saveTask = async () => {
-        if (!newTask.name.trim() || !newTask.bucketId) return;
+        if (!newTask.name.trim() || !newTask.bucketId) return;  // prevent empty save
         try {
             const response = await axios.post("http://localhost:8000/api/tasks", {
                 name: newTask.name,
@@ -195,18 +196,37 @@ const KanbanBoard = () => {
                 assigned_users: newTask.assignedTo.map(id => parseInt(id)),
             });
             const updatedTask = response.data;
-    
-            // Prepend the new task to the beginning of the array
+
             setTasks(prev => ({
                 ...prev,
                 [newTask.bucketId]: [updatedTask, ...(prev[newTask.bucketId] || [])]
             }));
-    
-            setNewTask({ name: "", dueDate: "", assignedTo: [], assigneeInput: "", bucketId: null });
+
         } catch (error) {
             console.error("Error adding task:", error);
+        } finally {
+            // Reset task always after attempt
+            setNewTask({ name: "", dueDate: "", assignedTo: [], assigneeInput: "", bucketId: null });
         }
     };
+
+    // Handle outside click
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+                if (newTask.name.trim() && newTask.bucketId) {
+                    saveTask();
+                } else {
+                    setNewTask({ name: "", dueDate: "", assignedTo: [], assigneeInput: "", bucketId: null });
+                }
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [newTask, saveTask]);
     const saveEditedTask = async (task) => {
         try {
             const response = await axios.put(`http://localhost:8000/api/tasks/${task.id}`, {
@@ -277,7 +297,7 @@ const KanbanBoard = () => {
                         <button className="add-task-btn" onClick={() => handleAddTask(bucket.id)}>+ Add Task</button>
 
                         {newTask.bucketId === bucket.id && (
-                            <motion.div className="task new-task-form" initial={{ scale: 0.9 }} animate={{ scale: 1 }}>
+                            <motion.div ref={wrapperRef} className="task new-task-form" initial={{ scale: 0.9 }} animate={{ scale: 1 }}>
                                 <input type="text" placeholder="Task name" value={newTask.name} onChange={e => setNewTask({ ...newTask, name: e.target.value })} />
                                 <input type="date" value={newTask.dueDate} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
 
@@ -285,54 +305,81 @@ const KanbanBoard = () => {
                                     <div className="selected-users">
                                         {newTask.assignedTo.map(id => {
                                             const user = userSuggestions.find(u => u.id.toString() === id);
-                                            return user ? <span key={id} className="tag">{user.email}</span> : null;
+                                            return user ? (
+                                                <span key={id} className="tag">
+                                                    <img src={user.profileImage} alt={user.name} className="avatar" />
+                                                    {user.name}
+                                                    <button onClick={() => {
+                                                        setNewTask(prev => ({
+                                                            ...prev,
+                                                            assignedTo: prev.assignedTo.filter(uid => uid !== id)
+                                                        }));
+                                                    }}>x</button>
+                                                </span>
+                                            ) : null;
                                         })}
                                     </div>
+
                                     <input
                                         type="text"
-                                        placeholder="Type email"
+                                        placeholder="Type name or email"
                                         value={newTask.assigneeInput}
                                         onChange={async (e) => {
                                             setNewTask({ ...newTask, assigneeInput: e.target.value });
-                                            await fetchUserSuggestions(e.target.value);
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter" && userSuggestions.length) {
-                                                const selected = userSuggestions[0];
-                                                if (!newTask.assignedTo.includes(selected.id.toString())) {
-                                                    setNewTask(prev => ({
-                                                        ...prev,
-                                                        assignedTo: [...prev.assignedTo, selected.id.toString()],
-                                                        assigneeInput: ""
-                                                    }));
-                                                }
-                                                e.preventDefault();
-                                            }
+                                            await fetchUserSuggestions(e.target.value); // Your API call to get suggestions
                                         }}
                                     />
-                                    {newTask.assigneeInput && (
+
+                                    {(newTask.assigneeInput || newTask.assignedTo.length) && (
                                         <div className="autocomplete-dropdown">
-                                            {userSuggestions.map(user => (
-                                                <div
-                                                    key={user.id}
-                                                    className="autocomplete-item"
-                                                    onClick={() => {
-                                                        if (!newTask.assignedTo.includes(user.id.toString())) {
+                                            {newTask.assignedTo.length > 0 && (
+                                                <>
+                                                    <div className="assigned-label">Assigned</div>
+                                                    {newTask.assignedTo.map(id => {
+                                                        const user = userSuggestions.find(u => u.id.toString() === id);
+                                                        return user && (
+                                                            <div key={user.id} className="autocomplete-item">
+                                                                <div className="user-info">
+                                                                    <div className="name">{user.name}</div>
+                                                                    <div className="email">{user.email}</div>
+                                                                </div>
+                                                                <button onClick={() => {
+                                                                    setNewTask(prev => ({
+                                                                        ...prev,
+                                                                        assignedTo: prev.assignedTo.filter(uid => uid !== id)
+                                                                    }));
+                                                                }}>x</button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </>
+                                            )}
+
+                                            <div className="suggestions-label">Suggestions</div>
+                                            {userSuggestions
+                                                .filter(user => !newTask.assignedTo.includes(user.id.toString()))
+                                                .map(user => (
+                                                    <div
+                                                        key={user.id}
+                                                        className="autocomplete-item"
+                                                        onClick={() => {
                                                             setNewTask(prev => ({
                                                                 ...prev,
                                                                 assignedTo: [...prev.assignedTo, user.id.toString()],
                                                                 assigneeInput: ""
                                                             }));
-                                                        }
-                                                    }}
-                                                >
-                                                    {user.email}
-                                                </div>
-                                            ))}
+                                                        }}
+                                                    >
+                                                        <img src={user.profileImage} alt={user.name} className="avatar" />
+                                                        <div className="user-info">
+                                                            <div className="name">{user.name}</div>
+                                                            <div className="email">{user.email}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                         </div>
                                     )}
                                 </div>
-
                                 <button onClick={saveTask}>Save Task</button>
                             </motion.div>
                         )}
