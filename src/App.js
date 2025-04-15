@@ -8,6 +8,7 @@ import KanbanBoard from "./components/KanbanBoard";
 import AdminDashboard from "./AdminDashboard";
 import UserDashboard from "./UserDashboard";
 import UserManagement from './UserManagement';
+import Sample from "./components/Sample";
 
 function App() {
   return (
@@ -18,7 +19,7 @@ function App() {
         <Route path="/user-dashboard" element={<UserDashboard />} />
         <Route path="/user-management" element={<UserManagement />} />
         <Route path="/" element={<KanbanBoard />} />
-
+        <Route path="/sample" element={<Sample />} />
     </Routes>
 </Router>
   );

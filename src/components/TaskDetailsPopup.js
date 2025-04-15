@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import "./TaskDetailsPopup.css"
 
-const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate }) => {
+const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate,shownImages,setShownImages }) => {
   const [selectedBucket, setSelectedBucket] = useState(task.bucket_id);
   const [progress, setProgress] = useState(task.progress || 'Not Started');
   const [priority, setPriority] = useState(task.priority || 'Medium');
@@ -22,6 +23,12 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate })
     }
   };
 
+  const handleFile = (e) => {
+    const files = Array.from(e.target.files);
+    const newAttachments = files.map(file => URL.createObjectURL(file));
+    setAttachments(prev => [...prev, ...newAttachments]);
+  };
+  
   const handleAddChecklistItem = () => {
     if (newItem.trim() !== '') {
       setChecklist(prev => [...prev, newItem]);
@@ -182,21 +189,34 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate })
           </div>
 
           {/* Attachments */}
-          <div className="mb-4">
-            <h6 className="fw-semibold mb-2">Attachments</h6>
+          <div className="mb-4 row">
+            <h6 className="fw-semibold mb-2 col-6">Attachments</h6>
+            
             <div className="mb-2 d-flex flex-wrap gap-2">
               {attachments.map((img, index) => (
-                <img
-                  key={index}
-                  src={img}
-                  alt="attachment"
-                  style={{ width: '80px', height: '80px', cursor: 'pointer' }}
-                  onClick={() => window.open(img, '_blank')}
-                />
+                <div key={index} style={{ position: 'relative' }}>
+                  <img
+                    src={img}
+                    alt="attachment"
+                    style={{ width: '80px', height: '80px', cursor: 'pointer' }}
+                    onClick={() => window.open(img, '_blank')}
+                  />
+                  {/* Show on Card button */}
+                  <button
+                    className="btn btn-sm btn-outline-success mt-1 w-100"
+                    onClick={() => {
+                      setShownImages(prev => ({ ...prev, [task.id]: img }));
+                    }}
+                  >
+                    Show on Card
+                  </button>
+                </div>
               ))}
             </div>
-            <input type="file" multiple onChange={handleFileChange} />
+
+            <input type="file" multiple onChange={handleFile} />
           </div>
+
 
           {/* Comments */}
           <div className="mb-4">

@@ -128,4 +128,6 @@
   .fw-medium {
     font-weight: 500;
   }
-  
+  .soc{
+    visibility: hidden;
+  }

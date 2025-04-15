@@ -25,6 +25,8 @@ const KanbanBoard = () => {
     const [currentUser, setCurrentUser] = useState(userData);
     const wrapperRef = useRef();
     const bucketMenuRef = useRef(null);
+    const [shownImages, setShownImages] = useState({});
+
 
 
 
@@ -462,6 +464,21 @@ const KanbanBoard = () => {
                                     <button onClick={() => setEditingTaskId(null)}>Cancel</button>
                                     </div>) : (<>
                                     <p>Due: {task.due_date ? formatDate(task.due_date) : "No due date"}</p>
+                                    {shownImages[task.id] && (
+                                    <div
+                                        onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.open(shownImages[task.id], '_blank');
+                                        }}
+                                        style={{ marginTop: '10px', cursor: 'pointer' }}
+                                    >
+                                        <img
+                                        src="https://icon-library.com/images/image-icon/image-icon-17.jpg"
+                                        alt="View"
+                                        style={{ width: '24px', height: '24px' }}
+                                        />
+                                    </div>
+                                    )}
                                     <p>
                                         Assigned to:{" "}
                                         {task.assigned_users?.length
@@ -479,6 +496,8 @@ const KanbanBoard = () => {
                                 onClose={() => setSelectedTask(null)} 
                                 currentUser={currentUser}
                                 onTaskUpdate={saveEditedTask}
+                                shownImages={shownImages}
+                                setShownImages={setShownImages}
                             />
                     )}
                     </motion.div>

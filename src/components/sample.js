@@ -1,157 +1,138 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-const TaskDetailsModal = ({ task, buckets, onClose }) => {
-  if (!task) return null;
+function CardWithImagePopup() {
+  const [showPopup, setShowPopup] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState(null);
+  const [showImageIcon, setShowImageIcon] = useState(false);
 
-  const handleOverlayClick = (e) => {
-    if (e.target.classList.contains('custom-modal-overlay')) {
-      onClose();
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const imageUrl = URL.createObjectURL(file);
+      setUploadedImage(imageUrl);
     }
   };
 
-  // Helper function to format date to dd-mm-yyyy
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return ${day}-${month}-${year};
-  };
-  const getBucketName = (bucket_id) => {
-    const bucket = buckets?.find((b) => b.id === bucket_id);
-    return bucket ? bucket.name : 'No Bucket';
+  const handleShowOnCard = () => {
+    setShowImageIcon(true);
+    // ❌ Don't close popup
   };
 
   return (
-    <div
-      className="modal show d-block custom-modal-overlay"
-      tabIndex="-1"
-      role="dialog"
-      onClick={handleOverlayClick}
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.22)' }}
-    >
-      <div className="modal-dialog modal-dialog-centered modal-lg" role="document">
-        <div className="modal-content rounded-3 p-4">
+    <div>
+      {/* Card */}
+      <div
+        onClick={() => setShowPopup(true)}
+        style={{
+          width: '250px',
+          padding: '20px',
+          border: '1px solid #ccc',
+          borderRadius: '8px',
+          margin: '20px',
+          position: 'relative',
+          cursor: 'pointer',
+        }}
+      >
+        <h3>Click Card</h3>
 
-          {/* Header */}
-          <div className="d-flex justify-content-between align-items-start mb-3">
-            <div>
-              <h6 className="text-success fw-semibold mb-1">{getBucketName(task.bucket_id)}</h6>
-              <h2 className="fw-bold mb-1">{task.name}</h2>
-            </div>
+        {/* Icon appears after 'Show on Card' is clicked */}
+        {showImageIcon && uploadedImage && (
+          <img
+            src="https://icon-library.com/images/image-icon/image-icon-17.jpg"
+            alt="View Uploaded"
+            onClick={(e) => {
+              e.stopPropagation(); // Don't trigger card click
+              window.open(uploadedImage, '_blank');
+            }}
+            style={{
+              width: '30px',
+              height: '30px',
+              position: 'absolute',
+              top: '10px',
+              right: '10px',
+              cursor: 'pointer',
+            }}
+          />
+        )}
+      </div>
+
+      {/* Popup */}
+      {showPopup && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              padding: '20px',
+              borderRadius: '10px',
+              width: '300px',
+              position: 'relative',
+              textAlign: 'center',
+            }}
+          >
+            <h4>Upload Image</h4>
+
+            <input type="file" accept="image/*" onChange={handleImageUpload} />
+
+            {uploadedImage && (
+              <>
+                <img
+                  src={uploadedImage}
+                  alt="Preview"
+                  style={{
+                    width: '100%',
+                    marginTop: '10px',
+                    borderRadius: '6px',
+                  }}
+                />
+
+                <button
+                  onClick={handleShowOnCard}
+                  style={{
+                    marginTop: '10px',
+                    padding: '8px 12px',
+                    backgroundColor: '#28a745',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Show on Card
+                </button>
+              </>
+            )}
 
             <button
-              type="button"
-              className="btn-close"
-              onClick={onClose}
-            ></button>
+              onClick={() => setShowPopup(false)}
+              style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                border: 'none',
+                background: 'transparent',
+                fontSize: '18px',
+                cursor: 'pointer',
+              }}
+            >
+              ✖
+            </button>
           </div>
-
-          {/* Assign Button */}
-          <div className="mb-3">
-            <button className="btn btn-outline-secondary btn-sm me-2">Assign</button>
-
-            {/* Assigned Users List */}
-            <div className="mt-2">
-              <h6 className="fw-semibold mb-1">Assigned Users:</h6>
-              {task.assigned_users?.length > 0 ? (
-                <ul className="mb-0">
-                  {task.assigned_users.map((user) => (
-                    <li key={user.id}>{user.email}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted mb-0">Unassigned</p>
-              )}
-            </div>
-          </div>
-
-          <hr />
-
-          {/* Task Details Section */}
-          <div className="mb-4">
-            <h6 className="fw-semibold mb-2">Add label</h6>
-            <div className="row g-3">
-
-              <div className="col-md-6">
-                <label className="form-label fw-semibold">Bucket</label>
-                <select className="form-select" >
-                  <option>{task.bucket_name || 'No Bucket'}</option>
-                </select>
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label fw-semibold">Progress</label>
-                <select className="form-select" >
-                  <option>{task.progress || 'Not started'}</option>
-                </select>
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label fw-semibold">Priority</label>
-                <select className="form-select" >
-                  <option>{task.priority || 'Medium'}</option>
-                </select>
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label fw-semibold">Repeat</label>
-                <select className="form-select" >
-                  <option>{task.repeat || 'Does not repeat'}</option>
-                </select>
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label fw-semibold">Start Date</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Start anytime"
-                  value={formatDate(task.start_date)}
-                  readOnly
-                />
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label fw-semibold">Due Date</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Due anytime"
-                  value={formatDate(task.due_date)}
-                  readOnly
-                />
-              </div>
-
-            </div>
-
-            <h6 className="fw-semibold mt-4 mb-2">Notes</h6>
-            <textarea
-              className="form-control"
-              placeholder="Type a description or add notes here"
-              rows="3"
-              value={task.notes || ''}
-              readOnly
-            />
-          </div>
-
-          {/* Checklist */}
-          <div className="mb-4">
-            <h6 className="fw-semibold mb-2">Checklist</h6>
-            <input type="text" className="form-control" placeholder="Add an item" />
-          </div>
-
-          {/* Comments */}
-          <div className="mb-4">
-            <h6 className="fw-semibold mb-2">Comments</h6>
-            <button className="btn btn-outline-secondary btn-sm">Add attachment</button>
-          </div>
-
         </div>
-      </div>
+      )}
     </div>
   );
-};
+}
 
-export default TaskDetailsModal;
+export default CardWithImagePopup;
