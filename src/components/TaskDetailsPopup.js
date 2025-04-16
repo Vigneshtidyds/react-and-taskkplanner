@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import "./TaskDetailsPopup.css"
+import "./TaskDetailsPopup.css";
 
-const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate,shownImages,setShownImages }) => {
+const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate, shownImages, setShownImages }) => {
   const [selectedBucket, setSelectedBucket] = useState(task.bucket_id);
   const [progress, setProgress] = useState(task.progress || 'Not Started');
   const [priority, setPriority] = useState(task.priority || 'Medium');
   const [startDate, setStartDate] = useState(task.start_date || '');
-  const [dueDate, setDueDate] = useState(task.due_date || '');
   const [notes, setNotes] = useState(task.notes || '');
   const [checklist, setChecklist] = useState(task.checklist || []);
   const [newItemVisible, setNewItemVisible] = useState(false);
@@ -14,6 +13,8 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate,sh
   const [attachments, setAttachments] = useState(task.attachments || []);
   const [comments, setComments] = useState(task.comments || []);
   const [commentInput, setCommentInput] = useState('');
+  const [dueDate, setDueDate] = useState(task.due_date ? task.due_date.slice(0, 10) : '');
+  const [showSuccess, setShowSuccess] = useState(false);
 
   if (!task) return null;
 
@@ -25,22 +26,33 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate,sh
 
   const handleFile = (e) => {
     const files = Array.from(e.target.files);
-    const newAttachments = files.map(file => URL.createObjectURL(file));
+    const newAttachments = files.map(file => ({
+      url: URL.createObjectURL(file),
+      name: file.name
+    }));
     setAttachments(prev => [...prev, ...newAttachments]);
   };
-  
+
   const handleAddChecklistItem = () => {
     if (newItem.trim() !== '') {
-      setChecklist(prev => [...prev, newItem]);
+      setChecklist(prev => [...prev, { text: newItem, done: false }]);
       setNewItem('');
       setNewItemVisible(false);
     }
   };
 
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    const newAttachments = files.map(file => URL.createObjectURL(file));
-    setAttachments(prev => [...prev, ...newAttachments]);
+  const toggleChecklistItem = (index) => {
+    const updated = [...checklist];
+    updated[index].done = !updated[index].done;
+    setChecklist(updated);
+  };
+
+  const removeChecklistItem = (index) => {
+    setChecklist(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeAttachment = (index) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleAddComment = () => {
@@ -61,6 +73,11 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate,sh
   };
 
   const handleSave = () => {
+    if (!task.name || !selectedBucket || !startDate || !dueDate) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
     const updatedTask = {
       ...task,
       bucket_id: selectedBucket,
@@ -75,14 +92,17 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate,sh
     };
 
     onTaskUpdate(updatedTask);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
   };
 
   return (
     <div
       className="modal show d-block custom-modal-overlay"
-      tabIndex="-1"
       role="dialog"
       onClick={handleOverlayClick}
+      aria-modal="true"
+      aria-labelledby="taskDetailsTitle"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.22)' }}
     >
       <div className="modal-dialog modal-dialog-centered modal-lg" role="document">
@@ -92,9 +112,9 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate,sh
           <div className="d-flex justify-content-between align-items-start mb-3">
             <div>
               <h6 className="text-success fw-semibold mb-1">{getBucketName(selectedBucket)}</h6>
-              <h2 className="fw-bold mb-1">{task.name}</h2>
+              <h2 id="taskDetailsTitle" className="fw-bold mb-1">{task.name}</h2>
             </div>
-            <button type="button" className="btn-close" onClick={onClose}></button>
+            <button type="button" className="btn-close" aria-label="Close" onClick={onClose}></button>
           </div>
 
           {/* Assigned Users */}
@@ -105,7 +125,7 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate,sh
                 {task.assigned_users.map((user) => (
                   <div key={user.id} className="d-flex align-items-center">
                     <img
-                      src={user.profile_pic}
+                      src={`http://localhost:8000/${user.profile_pic}`}
                       alt={user.name}
                       className="rounded-circle"
                       width="32"
@@ -169,7 +189,18 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate,sh
           <div className="mb-4">
             <h6 className="fw-semibold mb-2">Checklist</h6>
             {checklist.map((item, index) => (
-              <div key={index} className="mb-1">{item}</div>
+              <div key={index} className="d-flex justify-content-between align-items-center mb-1">
+                <div>
+                  <input
+                    type="checkbox"
+                    className="form-check-input me-2"
+                    checked={item.done}
+                    onChange={() => toggleChecklistItem(index)}
+                  />
+                  <span className={item.done ? 'text-decoration-line-through' : ''}>{item.text}</span>
+                </div>
+                <button className="btn btn-sm btn-danger" onClick={() => removeChecklistItem(index)}>Delete</button>
+              </div>
             ))}
             {newItemVisible ? (
               <input
@@ -189,34 +220,37 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate,sh
           </div>
 
           {/* Attachments */}
-          <div className="mb-4 row">
-            <h6 className="fw-semibold mb-2 col-6">Attachments</h6>
-            
-            <div className="mb-2 d-flex flex-wrap gap-2">
-              {attachments.map((img, index) => (
-                <div key={index} style={{ position: 'relative' }}>
+          <div className="mb-4">
+            <h6 className="fw-semibold mb-2">Attachments</h6>
+            <div className="mb-2 d-flex flex-wrap gap-3">
+              {attachments.map((file, index) => (
+                <div key={index} style={{ position: 'relative', width: '100px' }}>
                   <img
-                    src={img}
+                    src={file.url}
                     alt="attachment"
-                    style={{ width: '80px', height: '80px', cursor: 'pointer' }}
-                    onClick={() => window.open(img, '_blank')}
+                    style={{ width: '100%', height: '80px', objectFit: 'cover', cursor: 'pointer' }}
+                    onClick={() => window.open(file.url, '_blank')}
                   />
-                  {/* Show on Card button */}
+                  <small className="d-block text-truncate">{file.name}</small>
                   <button
                     className="btn btn-sm btn-outline-success mt-1 w-100"
                     onClick={() => {
-                      setShownImages(prev => ({ ...prev, [task.id]: img }));
+                      setShownImages(prev => ({ ...prev, [task.id]: file.url }));
                     }}
                   >
                     Show on Card
                   </button>
+                  <button
+                    className="btn btn-sm btn-outline-danger mt-1 w-100"
+                    onClick={() => removeAttachment(index)}
+                  >
+                    Delete
+                  </button>
                 </div>
               ))}
             </div>
-
             <input type="file" multiple onChange={handleFile} />
           </div>
-
 
           {/* Comments */}
           <div className="mb-4">
@@ -244,6 +278,7 @@ const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate,sh
             <button className="btn btn-success" onClick={handleSave}>Save Changes</button>
           </div>
 
+          {showSuccess && <div className="alert alert-success mt-3">Changes saved successfully!</div>}
         </div>
       </div>
     </div>

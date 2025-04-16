@@ -367,3 +367,23 @@ input {
     padding: 4px 12px;
     text-transform: uppercase;
 }
+.closeuser{
+    margin-left: 15px;
+    border: none;
+    background-color: #fff;
+}
+.assigned-user-avatarss {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.user-avatarr {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #ccc;
+}

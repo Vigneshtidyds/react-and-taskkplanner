@@ -130,13 +130,18 @@ const KanbanBoard = () => {
     const fetchUserSuggestions = async (query) => {
         try {
             const res = await axios.get('http://localhost:8000/api/users/search?q=' + query);
-            setUserSuggestions(res.data);
+            const usersWithFullPic = res.data.map(user => ({
+                ...user,
+                profile_pic: `http://localhost:8000/${user.profile_pic}` // Always prepending because profile_pic is like "uploads/..."
+            }));
+            setUserSuggestions(usersWithFullPic);
+    
+            console.log(res.data);
+            console.log(usersWithFullPic);   
         } catch (error) {
             console.error(error);
         }
     };
-       
-    
 
     const formatDate = (dateString) => {
         const date = new Date(dateString);
@@ -312,23 +317,6 @@ const KanbanBoard = () => {
                                 <input type="text" placeholder="Task name" value={newTask.name} onChange={e => setNewTask({ ...newTask, name: e.target.value })} />
                                 <input type="date" value={newTask.dueDate} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
                                 <div className="assigned-user-input">
-                                    <div className="selected-users">
-                                        {newTask.assignedTo.map(id => {
-                                            const user = userSuggestions.find(u => u.id.toString() === id);
-                                            return user ? (
-                                                <span key={id} className="tag">
-                                                    <img src={user.profileImage} alt={user.name} className="avatar" />
-                                                    {user.name}
-                                                    <button onClick={() => {
-                                                        setNewTask(prev => ({
-                                                            ...prev,
-                                                            assignedTo: prev.assignedTo.filter(uid => uid !== id)
-                                                        }));
-                                                    }}>x</button>
-                                                </span>
-                                            ) : null;
-                                        })}
-                                    </div>
                                     <input
                                         type="text"
                                         placeholder="Type name or email"
@@ -347,11 +335,12 @@ const KanbanBoard = () => {
                                                         const user = userSuggestions.find(u => u.id.toString() === id);
                                                         return user && (
                                                             <div key={user.id} className="autocomplete-item">
+                                                            <img src={user.profile_pic} alt={user.name} className="avatar" />
                                                                 <div className="user-info">
                                                                     <div className="name">{user.name}</div>
                                                                     <div className="email">{user.email}</div>
                                                                 </div>
-                                                                <button onClick={() => {
+                                                                <button className="closeuser" onClick={() => {
                                                                     setNewTask(prev => ({
                                                                         ...prev,
                                                                         assignedTo: prev.assignedTo.filter(uid => uid !== id)
@@ -376,7 +365,9 @@ const KanbanBoard = () => {
                                                                 assigneeInput: ""
                                                             }));
                                                         }}>
-                                                        <img src={user.profileImage} alt={user.name} className="avatar" />
+                                                        <img src={user.profile_pic} alt={user.name} className="avatar" />
+                                                        {console.log(userSuggestions)}
+
                                                         <div className="user-info">
                                                             <div className="name">{user.name}</div>
                                                             <div className="email">{user.email}</div>
@@ -414,8 +405,9 @@ const KanbanBoard = () => {
                                                 due_date: task.due_date,
                                                 assignedTo: task.assigned_users?.map(u => u.id.toString()) || [],
                                                 assigneeInput: ""});
-                                            setTaskMenuOpen(null);}}>Edit</button>
-                                            <button onClick={() => deleteTask(task.id, bucket.id)}>Delete</button>
+                                            setTaskMenuOpen(null);}}>Edit</button>  
+                                            <button onClick={(e) => {e.stopPropagation();
+                                                deleteTask(task.id, bucket.id);}}>Delete</button>
                                         </div>)}
                                     </div>
                                 {editingTaskId === task.id ? (
@@ -465,26 +457,33 @@ const KanbanBoard = () => {
                                     </div>) : (<>
                                     <p>Due: {task.due_date ? formatDate(task.due_date) : "No due date"}</p>
                                     {shownImages[task.id] && (
-                                    <div
-                                        onClick={(e) => {
-                                        e.stopPropagation();
-                                        window.open(shownImages[task.id], '_blank');
-                                        }}
-                                        style={{ marginTop: '10px', cursor: 'pointer' }}
-                                    >
+                                        <div style={{ marginTop: '10px' }}>
                                         <img
-                                        src="https://icon-library.com/images/image-icon/image-icon-17.jpg"
-                                        alt="View"
-                                        style={{ width: '24px', height: '24px' }}
-                                        />
-                                    </div>
+                                            src="https://icon-library.com/images/image-icon/image-icon-17.jpg"
+                                            alt="View"
+                                            style={{ width: '24px', height: '24px', cursor: 'pointer' }}
+                                            onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.open(shownImages[task.id], '_blank');
+                                            }}/>
+                                        </div>  
                                     )}
-                                    <p>
-                                        Assigned to:{" "}
-                                        {task.assigned_users?.length
-                                        ? task.assigned_users.map(u => u.email).join(", ")
-                                        : "Unassigned"}
-                                    </p></>
+                                    <div className="assigned-user-avatarss">
+                                        {task.assigned_users?.length ? (
+                                            task.assigned_users.map(user => (
+                                                <img
+                                                    key={user.id}
+                                                    src={`http://localhost:8000/${user.profile_pic}`}
+                                                    alt={user.email}
+                                                    title={user.email}
+                                                    className="user-avatarr"
+                                                />
+                                            ))
+                                        ) : (
+                                            <span>Unassigned</span>
+                                        )}
+                                    </div>
+                                    </>
                                 )}
                                 </motion.div>
                             ))}
@@ -499,7 +498,7 @@ const KanbanBoard = () => {
                                 shownImages={shownImages}
                                 setShownImages={setShownImages}
                             />
-                    )}
+                        )}
                     </motion.div>
                 ))}
                 <div className="add-bucket-container">
