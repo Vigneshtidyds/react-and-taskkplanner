@@ -247,23 +247,37 @@ const KanbanBoard = () => {
     }, [newTask, saveTask]);
     const saveEditedTask = async (task) => {
         try {
-            const response = await axios.put(`http://localhost:8000/api/tasks/${task.id}`, {
-                name: taskEdits.name,
-                due_date: taskEdits.due_date,
-                assigned_users: taskEdits.assignedTo.map(id => parseInt(id)),
-            });
-            const updatedTask = response.data;
-    
-            setTasks(prev => ({
-                ...prev,
-                [task.bucket_id]: prev[task.bucket_id].map(t => t.id === task.id ? updatedTask : t)
-            }));
-    
-            setEditingTaskId(null);
+          const response = await axios.put(
+            `http://localhost:8000/api/tasks/${task.id}`,
+            {
+              name: task.name,
+              bucket_id: task.bucket_id,
+              status: task.progress,
+              priority: task.priority,
+              start_date: task.start_date,
+              due_date: task.due_date,
+                notes: task.notes,
+                description: task.notes,
+              checklist: task.checklist,
+              attachments: task.attachments,
+              comments: task.comments,
+              assigned_users: task.assigned_users?.map(user =>
+                typeof user === 'object' ? user.id : parseInt(user)
+              ),
+            }
+          );
+          const updatedTask = response.data;
+          setTasks(prev => ({
+            ...prev,
+            [task.bucket_id]: prev[task.bucket_id].map(t =>
+              t.id === task.id ? updatedTask : t
+            )
+          }));
+          setEditingTaskId(null);
         } catch (error) {
-            console.error("Error editing task:", error);
+          console.error("Error editing task:", error);
         }
-    };    
+      };         
     const deleteTask = async (taskId, bucketId) => {
         try {
             await axios.delete(`http://localhost:8000/api/tasks/${taskId}`);
