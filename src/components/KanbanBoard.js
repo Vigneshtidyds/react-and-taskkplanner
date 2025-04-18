@@ -592,7 +592,7 @@ const KanbanBoard = () => {
                                     <span>Completed tasks</span>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <span>{(tasks[bucket.id] || []).filter(task => task.completed).length}</span>
-                                    <span>{openCompleted[bucket.id] ? '▲' : '▼'}</span>
+                                    <span>{openCompleted[bucket.id] ? 'f' : '▼'}</span>
                                     </div>
                                 </div>
 

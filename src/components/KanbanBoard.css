@@ -284,27 +284,28 @@ input {
   }
   
  /* HTML: <div class="loader"></div> */
-.loader {
-    --d:22px;
-    width: 4px;
-    height: 4px;
+ .loader {
+    width: 75px;
+    height: 75px;
+    border: 5px solid #B51396;
+    border-bottom-color: transparent;
     border-radius: 50%;
-    color: #b31596;
-    box-shadow: 
-      calc(1*var(--d))      calc(0*var(--d))     0 0,
-      calc(0.707*var(--d))  calc(0.707*var(--d)) 0 1px,
-      calc(0*var(--d))      calc(1*var(--d))     0 2px,
-      calc(-0.707*var(--d)) calc(0.707*var(--d)) 0 3px,
-      calc(-1*var(--d))     calc(0*var(--d))     0 4px,
-      calc(-0.707*var(--d)) calc(-0.707*var(--d))0 5px,
-      calc(0*var(--d))      calc(-1*var(--d))    0 6px;
-    animation: l27 1s infinite steps(8);
-  }
-  @keyframes l27 {
-    100% {transform: rotate(1turn)}
-  }
+    display: inline-block;
+    box-sizing: border-box;
+    animation: rotation 1s linear infinite;
+    }
 
-  .assigned-user-input {
+    @keyframes rotation {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+    } 
+
+
+.assigned-user-input {
     position: relative;
 }
 
@@ -397,4 +398,18 @@ input {
 .task-completed {
     text-decoration: line-through;
     color: #888; /* Optional: faded look */
+}
+.completed-section {
+    margin-top: 20px;
+}
+  
+.completed-header:hover {
+    background-color: #eaeaea;
+}
+.completed-header{
+    padding: 0px !important;
+    background: unset !important;
+}
+.completed-task-list{
+    margin-top: 20px !important;
 }
