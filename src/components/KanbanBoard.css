@@ -387,3 +387,14 @@ input {
     object-fit: cover;
     border: 1px solid #ccc;
 }
+.taskcn{
+    display: flex   ;
+}
+.radio-task{
+    margin-right: 5px;
+    width: unset;
+}
+.task-completed {
+    text-decoration: line-through;
+    color: #888; /* Optional: faded look */
+}

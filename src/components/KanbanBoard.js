@@ -26,6 +26,7 @@ const KanbanBoard = () => {
     const wrapperRef = useRef();
     const bucketMenuRef = useRef(null);
     const [shownImages, setShownImages] = useState({});
+    const [openCompleted, setOpenCompleted] = useState({});
 
 
 
@@ -290,6 +291,178 @@ const KanbanBoard = () => {
         }
     };
 
+    const toggleTaskCompletion = (task, bucketId) => {
+        setTasks(prevTasks => {
+          const updatedTasks = { ...prevTasks };
+          updatedTasks[bucketId] = updatedTasks[bucketId].map(t =>
+            t.id === task.id ? { ...t, completed: !t.completed } : t
+          );
+          return updatedTasks;
+        });
+    };
+    const renderTask = (task, bucketId) => (
+        <motion.div
+          key={task.id}
+          className={`task ${task.completed ? "completed-task" : ""}`}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          onClick={() => editingTaskId !== task.id && setSelectedTask(task)}
+        >
+          <div className="task-header">
+            <div className="taskcn">
+              <input
+                type="radio"
+                className="radio-task"
+                title="Do you want to complete it?"
+                checked={task.completed}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleTaskCompletion(task, bucketId);
+                }}
+              />
+              <strong className={task.completed ? 'task-completed' : ''}>
+                {task.name}
+              </strong>
+            </div>
+      
+            <div className="menu-icon" onClick={(e) => {
+              e.stopPropagation();
+              toggleTaskMenu(task.id);
+            }}>⋮</div>
+      
+            {taskMenuOpen === task.id && (
+              <div className="dropdown-menu">
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingTaskId(task.id);
+                  setTaskEdits({
+                    name: task.name,
+                    due_date: task.due_date,
+                    assignedTo: task.assigned_users?.map(u => u.id.toString()) || [],
+                    assigneeInput: ""
+                  });
+                  setTaskMenuOpen(null);
+                }}>Edit</button>
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  deleteTask(task.id, bucketId);
+                }}>Delete</button>
+              </div>
+            )}
+          </div>
+      
+          {editingTaskId === task.id ? (
+            <div className="edit-task-form">
+                <input
+                type="text"
+                value={taskEdits.name}
+                onChange={(e) => setTaskEdits({ ...taskEdits, name: e.target.value })}
+                placeholder="Task Name"
+                />
+                <input
+                type="date"
+                value={taskEdits.due_date}
+                onChange={(e) => setTaskEdits({ ...taskEdits, due_date: e.target.value })}
+                />
+
+                <div className="assigned-user-input">
+                <div className="selected-users">
+                    {taskEdits.assignedTo.map((id) => {
+                    const user = userSuggestions.find((u) => u.id.toString() === id);
+                    return user ? (
+                        <span key={id} className="tag">
+                        {user.email}
+                        </span>
+                    ) : null;
+                    })}
+                </div>
+
+                <input
+                    type="text"
+                    placeholder="Type email"
+                    value={taskEdits.assigneeInput}
+                    onChange={async (e) => {
+                    setTaskEdits({ ...taskEdits, assigneeInput: e.target.value });
+                    await fetchUserSuggestions(e.target.value);
+                    }}
+                    onKeyDown={(e) => {
+                    if (e.key === "Enter" && userSuggestions.length) {
+                        const selected = userSuggestions[0];
+                        if (!taskEdits.assignedTo.includes(selected.id.toString())) {
+                        setTaskEdits((prev) => ({
+                            ...prev,
+                            assignedTo: [...prev.assignedTo, selected.id.toString()],
+                            assigneeInput: "",
+                        }));
+                        }
+                        e.preventDefault();
+                    }
+                    }}
+                />
+
+                {taskEdits.assigneeInput && (
+                    <div className="autocomplete-dropdown">
+                    {userSuggestions.map((user) => (
+                        <div
+                        key={user.id}
+                        className="autocomplete-item"
+                        onClick={() => {
+                            if (!taskEdits.assignedTo.includes(user.id.toString())) {
+                            setTaskEdits((prev) => ({
+                                ...prev,
+                                assignedTo: [...prev.assignedTo, user.id.toString()],
+                                assigneeInput: "",
+                            }));
+                            }
+                        }}
+                        >
+                        {user.email}
+                        </div>
+                    ))}
+                    </div>
+                )}
+                </div>
+
+                <button onClick={() => saveEditedTask(task)}>Save</button>
+                <button onClick={() => setEditingTaskId(null)}>Cancel</button>
+            </div>
+          ) : (
+            <>
+              <p>Due: {task.due_date ? formatDate(task.due_date) : "No due date"}</p>
+              {shownImages[task.id] && (
+                <div style={{ marginTop: '10px' }}>
+                  <img
+                    src="https://icon-library.com/images/image-icon/image-icon-17.jpg"
+                    alt="View"
+                    style={{ width: '24px', height: '24px', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(shownImages[task.id], '_blank');
+                    }}
+                  />
+                </div>
+              )}
+              <div className="assigned-user-avatarss">
+                {task.assigned_users?.length ? (
+                  task.assigned_users.map(user => (
+                    <img
+                      key={user.id}
+                      src={`http://localhost:8000/${user.profile_pic}`}
+                      alt={user.email}
+                      title={user.email}
+                      className="user-avatarr"
+                    />
+                  ))
+                ) : (
+                  <span>Unassigned</span>
+                )}
+              </div>
+            </>
+          )}
+        </motion.div>
+    );
+        
+
     const closeDeletePopup = () => setDeleteConfirm(null);
 
     if (loading) return <div className="loader-div">
@@ -393,115 +566,44 @@ const KanbanBoard = () => {
                                 </div>
                                 <button onClick={saveTask}>Save Task</button>
                             </motion.div>)}
-                        <div className="task-list">
-                            {(tasks[bucket.id] || []).map(task => (
-                                <motion.div
-                                key={task.id}
-                                className="task"
-                                initial={{ y: 20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                onClick={() => editingTaskId !== task.id && setSelectedTask(task)}>
-                                <div className="task-header">
-                                    <strong>{task.name}</strong>
-                                    <div
-                                        className="menu-icon"
-                                        onClick={(e) => {
-                                            e.stopPropagation(); // Important! Stops click event from reaching parent
-                                            toggleTaskMenu(task.id);
-                                        }}>⋮</div>
-                                        {taskMenuOpen === task.id && (
-                                        <div className="dropdown-menu">
-                                            <button onClick={(e) => {
-                                            e.stopPropagation();
-                                            setEditingTaskId(task.id);
-                                            setTaskEdits({
-                                                name: task.name,
-                                                due_date: task.due_date,
-                                                assignedTo: task.assigned_users?.map(u => u.id.toString()) || [],
-                                                assigneeInput: ""});
-                                            setTaskMenuOpen(null);}}>Edit</button>  
-                                            <button onClick={(e) => {e.stopPropagation();
-                                                deleteTask(task.id, bucket.id);}}>Delete</button>
-                                        </div>)}
+                            <div className="task-list">
+                            {(tasks[bucket.id] || [])
+                                .filter(task => !task.completed)
+                                .map(task => renderTask(task, bucket.id))}
+                            </div>
+
+                            <div className="task-list completed-section">
+                                <div
+                                    className="completed-header"
+                                    onClick={() => setOpenCompleted(prev => ({
+                                    ...prev,
+                                    [bucket.id]: !prev[bucket.id]
+                                    }))}
+                                    style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    cursor: 'pointer',
+                                    background: '#f5f5f5',
+                                    padding: '10px',
+                                    borderRadius: '6px',
+                                    fontWeight: 'bold'
+                                    }}
+                                >
+                                    <span>Completed tasks</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>{(tasks[bucket.id] || []).filter(task => task.completed).length}</span>
+                                    <span>{openCompleted[bucket.id] ? '▲' : '▼'}</span>
                                     </div>
-                                {editingTaskId === task.id ? (
-                                    <div className="edit-task-form">
-                                    <input type="text" value={taskEdits.name} onChange={e => setTaskEdits({ ...taskEdits, name: e.target.value })} />
-                                    <input type="date" value={taskEdits.due_date} onChange={e => setTaskEdits({ ...taskEdits, due_date: e.target.value })} />
-                                    <div className="assigned-user-input">
-                                        <div className="selected-users">
-                                        {taskEdits.assignedTo.map(id => {
-                                            const user = userSuggestions.find(u => u.id.toString() === id);
-                                            return user ? <span key={id} className="tag">{user.email}</span> : null;})} </div>
-                                        <input
-                                        type="text"
-                                        placeholder="Type email"
-                                        value={taskEdits.assigneeInput}
-                                        onChange={async (e) => {
-                                            setTaskEdits({ ...taskEdits, assigneeInput: e.target.value });
-                                            await fetchUserSuggestions(e.target.value);}}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter" && userSuggestions.length) {
-                                            const selected = userSuggestions[0];
-                                            if (!taskEdits.assignedTo.includes(selected.id.toString())) {
-                                                setTaskEdits(prev => ({
-                                                ...prev,
-                                                assignedTo: [...prev.assignedTo, selected.id.toString()],
-                                                assigneeInput: ""
-                                                }));}e.preventDefault();}}}/>
-                                        {taskEdits.assigneeInput && (
-                                        <div className="autocomplete-dropdown">
-                                            {userSuggestions.map(user => (
-                                            <div
-                                                key={user.id}
-                                                className="autocomplete-item"
-                                                onClick={() => {
-                                                if (!taskEdits.assignedTo.includes(user.id.toString())) {
-                                                    setTaskEdits(prev => ({
-                                                    ...prev,
-                                                    assignedTo: [...prev.assignedTo, user.id.toString()],
-                                                    assigneeInput: ""
-                                                    }));}}}>{user.email}
-                                            </div>))}
-                                        </div>
-                                        )}
+                                </div>
+
+                                {openCompleted[bucket.id] && (
+                                    <div className="completed-task-list" style={{ marginTop: '10px' }}>
+                                    {(tasks[bucket.id] || [])
+                                        .filter(task => task.completed)
+                                        .map(task => renderTask(task, bucket.id))}
                                     </div>
-                                    <button onClick={() => saveEditedTask(task)}>Save</button>
-                                    <button onClick={() => setEditingTaskId(null)}>Cancel</button>
-                                    </div>) : (<>
-                                    <p>Due: {task.due_date ? formatDate(task.due_date) : "No due date"}</p>
-                                    {shownImages[task.id] && (
-                                        <div style={{ marginTop: '10px' }}>
-                                        <img
-                                            src="https://icon-library.com/images/image-icon/image-icon-17.jpg"
-                                            alt="View"
-                                            style={{ width: '24px', height: '24px', cursor: 'pointer' }}
-                                            onClick={(e) => {
-                                            e.stopPropagation();
-                                            window.open(shownImages[task.id], '_blank');
-                                            }}/>
-                                        </div>  
-                                    )}
-                                    <div className="assigned-user-avatarss">
-                                        {task.assigned_users?.length ? (
-                                            task.assigned_users.map(user => (
-                                                <img
-                                                    key={user.id}
-                                                    src={`http://localhost:8000/${user.profile_pic}`}
-                                                    alt={user.email}
-                                                    title={user.email}
-                                                    className="user-avatarr"
-                                                />
-                                            ))
-                                        ) : (
-                                            <span>Unassigned</span>
-                                        )}
-                                    </div>
-                                    </>
                                 )}
-                                </motion.div>
-                            ))}
-                        </div>
+                            </div>
                         {selectedTask && (
                             <TaskDetailsPopup  
                                 task={selectedTask} 
