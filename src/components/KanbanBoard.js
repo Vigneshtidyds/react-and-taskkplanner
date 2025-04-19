@@ -246,26 +246,41 @@ const KanbanBoard = () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, [newTask, saveTask]);
-    const saveEditedTask = async (task) => {
+    const normalizeStatus = (status) => {
+        const map = {
+          'not started': 'Not Started',
+          'in progress': 'In Progress',
+          'completed': 'Completed'
+        };
+        return map[status?.toLowerCase()] || 'Not Started';
+      };
+      
+      const saveEditedTask = async (task) => {
+        const normalizedStatus = normalizeStatus(task.progress); // ✅
+      
+        const payload = {
+          name: task.name,
+          bucket_id: task.bucket_id,
+          status: normalizedStatus,
+          priority: task.priority,
+          start_date: task.start_date || null,
+          due_date: task.due_date || null,
+          notes: task.notes,
+          description: task.notes,
+          checklist: task.checklist || [],
+          attachments: task.attachments || [],
+          comments: task.comments || [],
+          assigned_users: task.assigned_users?.map(user =>
+            typeof user === 'object' ? user.id : parseInt(user)
+          ) || []
+        };
+      
+        console.log(payload); // 🔍 Check this again
+      
         try {
           const response = await axios.put(
             `http://localhost:8000/api/tasks/${task.id}`,
-            {
-              name: task.name,
-              bucket_id: task.bucket_id,
-              status: task.progress,
-              priority: task.priority,
-              start_date: task.start_date,
-              due_date: task.due_date,
-                notes: task.notes,
-                description: task.notes,
-              checklist: task.checklist,
-              attachments: task.attachments,
-              comments: task.comments,
-              assigned_users: task.assigned_users?.map(user =>
-                typeof user === 'object' ? user.id : parseInt(user)
-              ),
-            }
+            payload
           );
           const updatedTask = response.data;
           setTasks(prev => ({
@@ -278,7 +293,8 @@ const KanbanBoard = () => {
         } catch (error) {
           console.error("Error editing task:", error);
         }
-      };         
+      };
+
     const deleteTask = async (taskId, bucketId) => {
         try {
             await axios.delete(`http://localhost:8000/api/tasks/${taskId}`);
@@ -291,19 +307,53 @@ const KanbanBoard = () => {
         }
     };
 
-    const toggleTaskCompletion = (task, bucketId) => {
-        setTasks(prevTasks => {
-          const updatedTasks = { ...prevTasks };
+    // const toggleTaskCompletion = (task, bucketId) => {
+    //     setTasks(prevTasks => {
+    //       const updatedTasks = { ...prevTasks };
+    //       updatedTasks[bucketId] = updatedTasks[bucketId].map(t =>
+    //         t.id === task.id ? { ...t, completed: !t.completed } : t
+    //       );
+    //       return updatedTasks;
+    //     });
+    // };
+    const toggleTaskStatus = async (task, bucketId) => {
+        const updatedStatus = task.status === 'Completed' ? 'Not Started' : 'Completed';
+      
+        try {
+          const response = await axios.put(`http://localhost:8000/api/tasks/${task.id}`, {
+            name: task.name,
+            bucket_id: task.bucket_id,
+            status: updatedStatus,
+            priority: task.priority || 'Low',
+            start_date: task.start_date || null,
+            due_date: task.due_date || null,
+            notes: task.notes || '',
+            description: task.notes || '',
+            checklist: task.checklist || [],
+            attachments: task.attachments || [],
+            comments: task.comments || [],
+            assigned_users: task.assigned_users?.map(user =>
+              typeof user === 'object' ? user.id : parseInt(user)
+            ) || []
+          });
+      
+          const updatedTask = response.data;
+      
+          const updatedTasks = { ...tasks };
           updatedTasks[bucketId] = updatedTasks[bucketId].map(t =>
-            t.id === task.id ? { ...t, completed: !t.completed } : t
+            t.id === task.id ? updatedTask : t
           );
-          return updatedTasks;
-        });
-    };
+      
+          setTasks(updatedTasks);
+        } catch (err) {
+          console.error('Failed to update task status:', err);
+        }
+      };
+      
     const renderTask = (task, bucketId) => (
         <motion.div
           key={task.id}
-          className={`task ${task.completed ? "completed-task" : ""}`}
+          className={`task ${task.status === 'Completed' ? "completed-task" : ""}`}
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           onClick={() => editingTaskId !== task.id && setSelectedTask(task)}
@@ -314,10 +364,11 @@ const KanbanBoard = () => {
                 type="radio"
                 className="radio-task"
                 title="Do you want to complete it?"
-                checked={task.completed}
+                onChange={() => {}}
+                checked={task.status === 'Completed'}
                 onClick={(e) => {
-                  e.stopPropagation();
-                  toggleTaskCompletion(task, bucketId);
+                e.stopPropagation();
+                toggleTaskStatus(task, bucketId);
                 }}
               />
               <strong className={task.completed ? 'task-completed' : ''}>
@@ -566,44 +617,46 @@ const KanbanBoard = () => {
                                 </div>
                                 <button onClick={saveTask}>Save Task</button>
                             </motion.div>)}
+                            
                             <div className="task-list">
-                            {(tasks[bucket.id] || [])
-                                .filter(task => !task.completed)
-                                .map(task => renderTask(task, bucket.id))}
+                                {(tasks[bucket.id] || [])
+                                    .filter(task => task.status !== 'completed')  // Filter out completed tasks
+                                    .map(task => renderTask(task, bucket.id))}
                             </div>
 
                             <div className="task-list completed-section">
                                 <div
                                     className="completed-header"
                                     onClick={() => setOpenCompleted(prev => ({
-                                    ...prev,
-                                    [bucket.id]: !prev[bucket.id]
+                                        ...prev,
+                                        [bucket.id]: !prev[bucket.id]
                                     }))}
                                     style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    cursor: 'pointer',
-                                    background: '#f5f5f5',
-                                    padding: '10px',
-                                    borderRadius: '6px',
-                                    fontWeight: 'bold'
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        cursor: 'pointer',
+                                        background: '#f5f5f5',
+                                        padding: '10px',
+                                        borderRadius: '6px',
+                                        fontWeight: 'bold'
                                     }}
                                 >
                                     <span>Completed tasks</span>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span>{(tasks[bucket.id] || []).filter(task => task.completed).length}</span>
-                                    <span>{openCompleted[bucket.id] ? 'f' : '▼'}</span>
+                                        <span>{(tasks[bucket.id] || []).filter(task => task.status === 'completed').length}</span>  {/* Completed task count */}
+                                        <span>{openCompleted[bucket.id] ? '^' : 'v'}</span>
                                     </div>
                                 </div>
 
                                 {openCompleted[bucket.id] && (
                                     <div className="completed-task-list" style={{ marginTop: '10px' }}>
-                                    {(tasks[bucket.id] || [])
-                                        .filter(task => task.completed)
-                                        .map(task => renderTask(task, bucket.id))}
+                                        {(tasks[bucket.id] || [])
+                                            .filter(task => task.status === 'completed')  // Only show completed tasks
+                                            .map(task => renderTask(task, bucket.id))}
                                     </div>
                                 )}
                             </div>
+
                         {selectedTask && (
                             <TaskDetailsPopup  
                                 task={selectedTask} 
