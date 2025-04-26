@@ -3,7 +3,7 @@
 
   const TaskDetailsModal = ({ task, buckets, onClose, currentUser, onTaskUpdate, shownImages, setShownImages }) => {
     const [selectedBucket, setSelectedBucket] = useState(task.bucket_id);
-    const [progress, setProgress] = useState(task.progress || 'Not Started');
+    const [progress, setProgress] = useState(task.status   || 'Not Started');
     const [priority, setPriority] = useState(task.priority || 'Medium');
     const [startDate, setStartDate] = useState(task.start_date || '');
     const [notes, setNotes] = useState(task.notes || '');
@@ -22,14 +22,31 @@
         onClose();
       }
     };
-    const handleFile = (e) => {
+    const handleFile = async (e) => {
       const files = Array.from(e.target.files);
-      const newAttachments = files.map(file => ({
-        url: URL.createObjectURL(file),
-        name: file.name
-      }));
-      setAttachments(prev => [...prev, ...newAttachments]);
-    };
+    
+      for (let file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+    
+        try {
+          const res = await fetch('http://localhost:8000/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+    
+          const data = await res.json();
+    
+          if (data.url) {
+            setAttachments((prev) => [...prev, { url: data.url, name: file.name }]);
+          } else {
+            console.error('Upload failed:', data);
+          }
+        } catch (error) {
+          console.error('Upload error:', error);
+        }
+      }
+    };     
     const handleAddChecklistItem = () => {
       if (newItem.trim() !== '') {
         setChecklist(prev => [...prev, { text: newItem, done: false }]);
@@ -76,7 +93,8 @@
         attachments,
         comments,
       };
-      onTaskUpdate(updatedTask);
+      const oldBucketId = task.bucket_id;
+      onTaskUpdate(updatedTask, oldBucketId); 
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     };
@@ -111,7 +129,7 @@
                   {task.assigned_users.map((user) => (
                     <div key={user.id} className="d-flex align-items-center">
                       <img
-                        src={`http://localhost:8000/${user.profile_pic}`}
+                        src={`http://localhost:8000${user.profile_pic}`}
                         alt={user.name}
                         className="rounded-circle"
                         width="32"
@@ -129,9 +147,27 @@
             <div className="mb-4 row g-3">
               <div className="col-md-6">
                 <label className="form-label fw-semibold">Bucket</label>
-                <select className="form-select" value={selectedBucket} onChange={(e) => setSelectedBucket(e.target.value)}>
+                <select className="form-select" value={selectedBucket} onChange={(e) => {
+                  const newBucketId = e.target.value;
+                  setSelectedBucket(newBucketId);
+                  const updatedTask = {
+                    ...task,
+                    bucket_id: newBucketId,
+                    progress,
+                    priority,
+                    start_date: startDate,
+                    due_date: dueDate,
+                    notes,
+                    checklist,
+                    attachments,
+                    comments,
+                  };
+                  onTaskUpdate(updatedTask);
+                }}>
                   {buckets.map(bucket => (
-                    <option key={bucket.id} value={bucket.id}>{bucket.name}</option>
+                    <option key={bucket.id} value={bucket.id}>
+                      {bucket.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -203,14 +239,16 @@
             {/* Attachments */}
             <div className="mb-4">
               <h6 className="fw-semibold mb-2">Attachments</h6>
+
+              {/* Image previews with actions */}
               <div className="mb-2 d-flex flex-wrap gap-3">
                 {attachments.map((file, index) => (
                   <div key={index} style={{ position: 'relative', width: '100px' }}>
                     <img
-                      src={file.url}
+                      src={`http://localhost:8000${file.url}`}
                       alt="attachment"
                       style={{ width: '100%', height: '80px', objectFit: 'cover', cursor: 'pointer' }}
-                      onClick={() => window.open(file.url, '_blank')}
+                      onClick={() => window.open(`http://localhost:8000${file.url}`, '_blank')}
                     />
                     <small className="d-block text-truncate">{file.name}</small>
                     <button
@@ -230,8 +268,19 @@
                   </div>
                 ))}
               </div>
+
+              {/* Optional list view */}
+              <div className="mb-2">
+                {attachments.map((file, idx) => (
+                  <div key={idx}>
+                    <a href={`http://localhost:8000${file.url}`} target="_blank" rel="noopener noreferrer">{file.name}</a>
+                  </div>
+                ))}
+              </div>
+
               <input type="file" multiple onChange={handleFile} />
             </div>
+
             {/* Comments */}
             <div className="mb-4">
               <h6 className="fw-semibold mb-2">Comments</h6>

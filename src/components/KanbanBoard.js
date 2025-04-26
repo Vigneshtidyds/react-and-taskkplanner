@@ -133,7 +133,7 @@ const KanbanBoard = () => {
             const res = await axios.get('http://localhost:8000/api/users/search?q=' + query);
             const usersWithFullPic = res.data.map(user => ({
                 ...user,
-                profile_pic: `http://localhost:8000/${user.profile_pic}` // Always prepending because profile_pic is like "uploads/..."
+                profile_pic: `http://localhost:8000${user.profile_pic}` // Always prepending because profile_pic is like "uploads/..."
             }));
             setUserSuggestions(usersWithFullPic);
     
@@ -143,12 +143,6 @@ const KanbanBoard = () => {
             console.error(error);
         }
     };
-
-    const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
-    };
-
     const addBucket = async () => {
         if (!newBucketName.trim()) return;
         try {
@@ -253,48 +247,78 @@ const KanbanBoard = () => {
           'completed': 'Completed'
         };
         return map[status?.toLowerCase()] || 'Not Started';
-      };
-      
-      const saveEditedTask = async (task) => {
-        const normalizedStatus = normalizeStatus(task.progress); // ✅
-      
-        const payload = {
-          name: task.name,
-          bucket_id: task.bucket_id,
-          status: normalizedStatus,
-          priority: task.priority,
-          start_date: task.start_date || null,
-          due_date: task.due_date || null,
-          notes: task.notes,
-          description: task.notes,
-          checklist: task.checklist || [],
-          attachments: task.attachments || [],
-          comments: task.comments || [],
-          assigned_users: task.assigned_users?.map(user =>
-            typeof user === 'object' ? user.id : parseInt(user)
-          ) || []
-        };
-      
-        console.log(payload); // 🔍 Check this again
-      
-        try {
-          const response = await axios.put(
-            `http://localhost:8000/api/tasks/${task.id}`,
-            payload
-          );
-          const updatedTask = response.data;
-          setTasks(prev => ({
-            ...prev,
-            [task.bucket_id]: prev[task.bucket_id].map(t =>
-              t.id === task.id ? updatedTask : t
-            )
-          }));
-          setEditingTaskId(null);
-        } catch (error) {
-          console.error("Error editing task:", error);
+    };
+    const formatDateInput = (dateStr) => {
+        if (!dateStr) return ''; // Return empty if there's no date
+        const date = new Date(dateStr);
+        return date.toISOString().split('T')[0]; // Convert to yyyy-MM-dd
+    };
+    
+    const formatDate = (dateString) => {
+        if (!dateString) return null;
+        // Check if it's already in the correct format (yyyy-MM-dd)
+        if (dateString.includes('T')) {
+            return dateString.split('T')[0]; // Get yyyy-MM-dd
         }
-      };
-
+        return dateString; // If already in the correct format, return it
+    };
+    
+    const saveEditedTask = async (task, oldBucketId) => {
+        const normalizedStatus = normalizeStatus(task.progress);
+    
+        const payload = {
+            name: task.name,
+            bucket_id: task.bucket_id,
+            status: normalizedStatus,
+            priority: 'High',
+            start_date: formatDate(task.start_date),
+            due_date: formatDate(task.due_date),
+            notes: task.notes,
+            description: task.notes,
+            checklist: task.checklist || [],
+            attachments: task.attachments || [],
+            comments: task.comments || [],
+            assigned_users: task.assigned_users?.map(user =>
+              typeof user === 'object' ? user.id : parseInt(user)
+            ) || []
+        };
+    
+        console.log("Sending payload:", payload);
+    
+        try {
+            const response = await axios.put(
+                `http://localhost:8000/api/tasks/${task.id}`,
+                payload
+            );
+            const updatedTask = response.data;
+            console.log("Server responded with:", response.data);
+    
+            setTasks(prev => {
+                const updatedBuckets = { ...prev };
+    
+                // ✅ Remove task from old bucket (correctly)
+                if (updatedBuckets[oldBucketId]) {
+                    updatedBuckets[oldBucketId] = updatedBuckets[oldBucketId].filter(t => t.id !== task.id);
+                }
+    
+                // ✅ Add task to new bucket
+                const newBucket = updatedBuckets[updatedTask.bucket_id] || [];
+                updatedBuckets[updatedTask.bucket_id] = [...newBucket, updatedTask];
+    
+                return updatedBuckets;
+            });
+    
+            setEditingTaskId(null);
+        } catch (error) {
+            console.error("Error editing task:", error);
+            if (error.response) {
+                console.error("Server says:", error.response.data);
+                if (error.response.status === 422) {
+                    alert('Validation failed! Please check your inputs.');
+                }
+            }
+        }
+    };
     const deleteTask = async (taskId, bucketId) => {
         try {
             await axios.delete(`http://localhost:8000/api/tasks/${taskId}`);
@@ -306,16 +330,6 @@ const KanbanBoard = () => {
             console.error("Error deleting task:", error);
         }
     };
-
-    // const toggleTaskCompletion = (task, bucketId) => {
-    //     setTasks(prevTasks => {
-    //       const updatedTasks = { ...prevTasks };
-    //       updatedTasks[bucketId] = updatedTasks[bucketId].map(t =>
-    //         t.id === task.id ? { ...t, completed: !t.completed } : t
-    //       );
-    //       return updatedTasks;
-    //     });
-    // };
     const toggleTaskStatus = async (task, bucketId) => {
         const updatedStatus = task.status === 'Completed' ? 'Not Started' : 'Completed';
       
@@ -348,7 +362,7 @@ const KanbanBoard = () => {
         } catch (err) {
           console.error('Failed to update task status:', err);
         }
-      };
+    };
       
     const renderTask = (task, bucketId) => (
         <motion.div
@@ -387,11 +401,19 @@ const KanbanBoard = () => {
                   e.stopPropagation();
                   setEditingTaskId(task.id);
                   setTaskEdits({
-                    name: task.name,
-                    due_date: task.due_date,
-                    assignedTo: task.assigned_users?.map(u => u.id.toString()) || [],
-                    assigneeInput: ""
-                  });
+                        id: task.id,                    // Add ID
+                        bucket_id: task.bucket_id,       // Add bucket_id
+                        progress: task.status,           // Add progress (needed for normalizeStatus)
+                        name: task.name,
+                        due_date: task.due_date,
+                        start_date: task.start_date || null,   // Optional but safe
+                        notes: task.notes || "",               // Optional
+                        checklist: task.checklist || [],
+                        attachments: task.attachments || [],
+                        comments: task.comments || [],
+                        assignedTo: task.assigned_users?.map(u => u.id.toString()) || [],
+                        assigneeInput: ""
+                    });
                   setTaskMenuOpen(null);
                 }}>Edit</button>
                 <button onClick={(e) => {
@@ -399,117 +421,118 @@ const KanbanBoard = () => {
                   deleteTask(task.id, bucketId);
                 }}>Delete</button>
               </div>
-            )}
+            )}  
           </div>
       
           {editingTaskId === task.id ? (
             <div className="edit-task-form">
                 <input
-                type="text"
-                value={taskEdits.name}
-                onChange={(e) => setTaskEdits({ ...taskEdits, name: e.target.value })}
-                placeholder="Task Name"
-                />
-                <input
-                type="date"
-                value={taskEdits.due_date}
-                onChange={(e) => setTaskEdits({ ...taskEdits, due_date: e.target.value })}
-                />
-
-                <div className="assigned-user-input">
-                <div className="selected-users">
-                    {taskEdits.assignedTo.map((id) => {
-                    const user = userSuggestions.find((u) => u.id.toString() === id);
-                    return user ? (
-                        <span key={id} className="tag">
-                        {user.email}
-                        </span>
-                    ) : null;
-                    })}
-                </div>
-
-                <input
                     type="text"
-                    placeholder="Type email"
-                    value={taskEdits.assigneeInput}
-                    onChange={async (e) => {
-                    setTaskEdits({ ...taskEdits, assigneeInput: e.target.value });
-                    await fetchUserSuggestions(e.target.value);
-                    }}
-                    onKeyDown={(e) => {
-                    if (e.key === "Enter" && userSuggestions.length) {
-                        const selected = userSuggestions[0];
-                        if (!taskEdits.assignedTo.includes(selected.id.toString())) {
-                        setTaskEdits((prev) => ({
-                            ...prev,
-                            assignedTo: [...prev.assignedTo, selected.id.toString()],
-                            assigneeInput: "",
-                        }));
-                        }
-                        e.preventDefault();
-                    }
-                    }}
+                    value={taskEdits.name}
+                    onChange={(e) => setTaskEdits({ ...taskEdits, name: e.target.value })}
+                    placeholder="Task Name"
                 />
-
-                {taskEdits.assigneeInput && (
-                    <div className="autocomplete-dropdown">
-                    {userSuggestions.map((user) => (
-                        <div
-                        key={user.id}
-                        className="autocomplete-item"
-                        onClick={() => {
-                            if (!taskEdits.assignedTo.includes(user.id.toString())) {
-                            setTaskEdits((prev) => ({
-                                ...prev,
-                                assignedTo: [...prev.assignedTo, user.id.toString()],
-                                assigneeInput: "",
-                            }));
+                <input
+                    type="date"
+                    value={formatDateInput(taskEdits.due_date)} // Correctly formatted date for input
+                    onChange={(e) => setTaskEdits({ ...taskEdits, due_date: e.target.value })}
+                />
+                <div className="assigned-user-input">
+                    <div className="selected-users">
+                        {taskEdits.assignedTo.map((id) => {
+                            const user = userSuggestions.find((u) => u.id.toString() === id);
+                            return user ? (
+                                <span key={id} className="tag">
+                                    {user.email}
+                                </span>
+                            ) : null;
+                        })}
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Type email"
+                        value={taskEdits.assigneeInput}
+                        onChange={async (e) => {
+                            setTaskEdits({ ...taskEdits, assigneeInput: e.target.value });
+                            await fetchUserSuggestions(e.target.value);
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && userSuggestions.length) {
+                                const selected = userSuggestions[0];
+                                if (!taskEdits.assignedTo.includes(selected.id.toString())) {
+                                    setTaskEdits((prev) => ({
+                                        ...prev,
+                                        assignedTo: [...prev.assignedTo, selected.id.toString()],
+                                        assigneeInput: "",
+                                    }));
+                                }
+                                e.preventDefault();
                             }
                         }}
-                        >
-                        {user.email}
+                    />
+                    {taskEdits.assigneeInput && (
+                        <div className="autocomplete-dropdown">
+                            {userSuggestions.map((user) => (
+                                <div
+                                    key={user.id}
+                                    className="autocomplete-item"
+                                    onClick={() => {
+                                        if (!taskEdits.assignedTo.includes(user.id.toString())) {
+                                            setTaskEdits((prev) => ({
+                                                ...prev,
+                                                assignedTo: [...prev.assignedTo, user.id.toString()],
+                                                assigneeInput: "",
+                                            }));
+                                        }
+                                    }}
+                                >
+                                    {user.email}
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                    </div>
-                )}
+                    )}
                 </div>
-
-                <button onClick={() => saveEditedTask(task)}>Save</button>
+                <button onClick={() => {
+    console.log("Sending edited task:", taskEdits);
+    saveEditedTask(taskEdits);
+}}>
+  Save
+</button>
                 <button onClick={() => setEditingTaskId(null)}>Cancel</button>
             </div>
-          ) : (
+        ) : (
             <>
-              <p>Due: {task.due_date ? formatDate(task.due_date) : "No due date"}</p>
-              {shownImages[task.id] && (
-                <div style={{ marginTop: '10px' }}>
-                  <img
-                    src="https://icon-library.com/images/image-icon/image-icon-17.jpg"
-                    alt="View"
-                    style={{ width: '24px', height: '24px', cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.open(shownImages[task.id], '_blank');
-                    }}
-                  />
-                </div>
-              )}
-              <div className="assigned-user-avatarss">
-                {task.assigned_users?.length ? (
-                  task.assigned_users.map(user => (
-                    <img
-                      key={user.id}
-                      src={`http://localhost:8000/${user.profile_pic}`}
-                      alt={user.email}
-                      title={user.email}
-                      className="user-avatarr"
-                    />
-                  ))
-                ) : (
-                  <span>Unassigned</span>
+                <p>Due: {task.due_date ? formatDate(task.due_date) : "No due date"}</p>
+                {shownImages[task.id] && (
+                    <div style={{ marginTop: '10px' }}>
+                        <img
+                            src="https://icon-library.com/images/image-icon/image-icon-17.jpg"
+                            alt="View"
+                            style={{ width: '24px', height: '24px', cursor: 'pointer' }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(shownImages[task.id], '_blank');
+                            }}
+                        />
+                    </div>
                 )}
-              </div>
+                <div className="assigned-user-avatarss">
+                    {task.assigned_users?.length ? (
+                        task.assigned_users.map(user => (
+                            <img
+                                key={user.id}
+                                src={`http://localhost:8000${user.profile_pic}`}
+                                alt={user.email}
+                                title={user.email}
+                                className="user-avatarr"
+                            />
+                        ))
+                    ) : (
+                        <span>Unassigned</span>
+                    )}
+                </div>
             </>
-          )}
+        )}
         </motion.div>
     );
         
@@ -553,7 +576,7 @@ const KanbanBoard = () => {
                         {newTask.bucketId === bucket.id && (
                             <motion.div ref={wrapperRef} className="task new-task-form" initial={{ scale: 0.9 }} animate={{ scale: 1 }}>
                                 <input type="text" placeholder="Task name" value={newTask.name} onChange={e => setNewTask({ ...newTask, name: e.target.value })} />
-                                <input type="date" value={newTask.dueDate} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
+                                <input type="date" value={formatDateInput(newTask.dueDate)} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
                                 <div className="assigned-user-input">
                                     <input
                                         type="text"
@@ -599,7 +622,7 @@ const KanbanBoard = () => {
                                                         onClick={() => {
                                                             setNewTask(prev => ({
                                                                 ...prev,
-                                                                assignedTo: [...prev.assignedTo, user.id.toString()],
+                                                                  assignedTo: [...prev.assignedTo, user.id.toString()],
                                                                 assigneeInput: ""
                                                             }));
                                                         }}>
